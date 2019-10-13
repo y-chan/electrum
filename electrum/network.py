@@ -43,14 +43,14 @@ from aiohttp import ClientResponse
 
 from . import util
 from .util import (log_exceptions, ignore_exceptions,
-                   bfh, SilentTaskGroup, make_aiohttp_session, send_exception_to_crash_reporter,
+                   bh2u, bfh, SilentTaskGroup, make_aiohttp_session, send_exception_to_crash_reporter,
                    is_hash256_str, is_non_negative_integer)
 
-from .bitcoin import COIN
+from .bitcoin import COIN, b58_address_to_hash160
 from . import constants
 from . import blockchain
 from . import bitcoin
-from .blockchain import Blockchain, HEADER_SIZE
+from .blockchain import Blockchain, HEADER_SIZE, TOKEN_TRANSFER_TOPIC
 from .interface import (Interface, serialize_server, deserialize_server,
                         RequestTimedOut, NetworkTimeout, BUCKET_NAME_OF_ONION_SERVERS)
 from .version import PROTOCOL_VERSION
@@ -392,13 +392,13 @@ class Network(Logger):
                     self.logger.info(f"invalid donation address from server: {repr(addr)}")
                 addr = ''
             self.donation_address = addr
-        async def get_server_peers():
-            server_peers = await session.send_request('server.peers.subscribe')
-            random.shuffle(server_peers)
-            max_accepted_peers = len(constants.net.DEFAULT_SERVERS) + NUM_RECENT_SERVERS
-            server_peers = server_peers[:max_accepted_peers]
-            self.server_peers = parse_servers(server_peers)
-            self.notify('servers')
+#        async def get_server_peers():
+#            server_peers = await session.send_request('server.peers.subscribe')
+#            random.shuffle(server_peers)
+#            max_accepted_peers = len(constants.net.DEFAULT_SERVERS) + NUM_RECENT_SERVERS
+#            server_peers = server_peers[:max_accepted_peers]
+#            self.server_peers = parse_servers(server_peers)
+#            self.notify('servers')
         async def get_relay_fee():
             relayfee = await session.send_request('blockchain.relayfee')
             if relayfee is None:
@@ -410,7 +410,7 @@ class Network(Logger):
         async with TaskGroup() as group:
             await group.spawn(get_banner)
             await group.spawn(get_donation_address)
-            await group.spawn(get_server_peers)
+#            await group.spawn(get_server_peers)
             await group.spawn(get_relay_fee)
             await group.spawn(self._request_fee_estimates(interface))
 
@@ -799,7 +799,7 @@ class Network(Logger):
     async def _init_headers_file(self):
         b = blockchain.get_best_chain()
         filename = b.path()
-        length = HEADER_SIZE * len(constants.net.CHECKPOINTS) * 2016
+        length = HEADER_SIZE * len(constants.net.CHECKPOINTS) * 1024
         if not os.path.exists(filename) or os.path.getsize(filename) < length:
             with open(filename, 'wb') as f:
                 if length > 0:
@@ -1293,3 +1293,23 @@ class Network(Logger):
             for server in servers:
                 await group.spawn(get_response(server))
         return responses
+
+    async def get_transactions_receipt(self, tx_hash):
+        return await self.interface.session.send_request('blochchain.transaction.get_receipt', [tx_hash])
+
+    async def get_token_info(self, contract_addr):
+        return await self.interface.session.send_request('blockchain.token.get_info', [contract_addr, ])
+
+    async def call_contract(self, address, data, sender):
+        return await self.interface.session.send_request('blockchain.contract.call', [address, data, sender])
+
+    async def request_token_balance(self, bind_addr, contract_addr):
+        __, hash160 = b58_address_to_hash160(bind_addr)
+        hash160 = bh2u(hash160)
+        datahex = '70a08231{}'.format(hash160.zfill(64))
+        return await self.interface.session.send_request('blockchain.contract.call', [contract_addr, datahex, '', 'int'])
+
+    async def request_token_history(self, bind_addr, contract_addr):
+        __, hash160 = b58_address_to_hash160(bind_addr)
+        hash160 = bh2u(hash160)
+        return await self.interface.session.send_request('blockchain.contract.event.get_history', [hash160, contract_addr, TOKEN_TRANSFER_TOPIC])

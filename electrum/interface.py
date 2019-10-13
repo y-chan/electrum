@@ -412,20 +412,21 @@ class Interface(Logger):
         # use lower timeout as we usually have network.bhi_lock here
         timeout = self.network.get_network_timeout_seconds(NetworkTimeout.Urgent)
         res = await self.session.send_request('blockchain.block.header', [height], timeout=timeout)
-        return blockchain.deserialize_header(bytes.fromhex(res), height)
+        fix_res = blockchain.fix_header(bytes.fromhex(res))
+        return blockchain.deserialize_header(fix_res, height)
 
     async def request_chunk(self, height, tip=None, *, can_return_early=False):
-        index = height // 2016
+        index = height // 1024
         if can_return_early and index in self._requested_chunks:
             return
         self.logger.info(f"requesting chunk from height {height}")
-        size = 2016
+        size = 1024
         if tip is not None:
-            size = min(size, tip - index * 2016 + 1)
+            size = min(size, tip - index * 1024 + 1)
             size = max(size, 0)
         try:
             self._requested_chunks.add(index)
-            res = await self.session.send_request('blockchain.block.headers', [index * 2016, size])
+            res = await self.session.send_request('blockchain.block.headers', [index * 1024, size])
         finally:
             try: self._requested_chunks.remove(index)
             except KeyError: pass
@@ -490,7 +491,8 @@ class Interface(Logger):
             item = await header_queue.get()
             raw_header = item[0]
             height = raw_header['height']
-            header = blockchain.deserialize_header(bfh(raw_header['hex']), height)
+            header_hex = blockchain.fix_header(bfh(raw_header['hex']))
+            header = blockchain.deserialize_header(header_hex, height)
             self.tip_header = header
             self.tip = height
             if self.tip < constants.net.max_checkpoint():
@@ -528,7 +530,7 @@ class Interface(Logger):
                     last, height = await self.step(height)
                     continue
                 self.network.trigger_callback('network_updated')
-                height = (height // 2016 * 2016) + num_headers
+                height = (height // 1024 * 1024) + num_headers
                 assert height <= next_height+1, (height, self.tip)
                 last = 'catchup'
             else:

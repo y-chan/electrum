@@ -1,13 +1,13 @@
 [app]
 
 # (str) Title of your application
-title = Electrum
+title = Electrum for Qtum
 
 # (str) Package name
 package.name = Electrum
 
 # (str) Package domain (needed for android/ios packaging)
-package.domain = org.electrum
+package.domain = org.electrum_qtum
 
 # (str) Source code where the main.py live
 source.dir = .
@@ -42,7 +42,15 @@ requirements =
     plyer,
     kivy==82d561d62577757d478df52173610f925c05ecab,
     libffi,
-    libsecp256k1
+    libsecp256k1,
+    pycryptodomex==bfc1cca093a7344c9ed2b7c34bc560db6dca662a,
+    cytoolz,
+    toolz,
+    parsimonious,
+    vips_abi,
+    vips_utils,
+    vips_hash,
+    eth_typing
 
 # (str) Presplash of the application
 #presplash.filename = %(source.dir)s/gui/kivy/theming/splash.png

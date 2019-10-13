@@ -20,12 +20,11 @@ FEE_ETA_TARGETS = [25, 10, 5, 2]
 FEE_DEPTH_TARGETS = [10000000, 5000000, 2000000, 1000000, 500000, 200000, 100000]
 
 # satoshi per kbyte
-FEERATE_MAX_DYNAMIC = 1500000
-FEERATE_WARNING_HIGH_FEE = 600000
-FEERATE_FALLBACK_STATIC_FEE = 150000
-FEERATE_DEFAULT_RELAY = 1000
-FEERATE_STATIC_VALUES = [1000, 2000, 5000, 10000, 20000, 30000,
-                         50000, 70000, 100000, 150000, 200000, 300000]
+FEERATE_MAX_DYNAMIC = 125000000
+FEERATE_WARNING_HIGH_FEE = 1500000
+FEERATE_FALLBACK_STATIC_FEE = 1000000
+FEERATE_DEFAULT_RELAY = 400000
+FEERATE_STATIC_VALUES = [410000, 500000, 600000, 700000, 800000, 1000000, 1300000, 1800000, 2000000, 2500000, 3000000]
 
 
 config = None
@@ -120,9 +119,6 @@ class SimpleConfig(Logger):
         elif self.get('regtest'):
             path = os.path.join(path, 'regtest')
             make_dir(path, allow_symlink=False)
-        elif self.get('simnet'):
-            path = os.path.join(path, 'simnet')
-            make_dir(path, allow_symlink=False)
 
         self.logger.info(f"electrum directory {path}")
         return path
@@ -207,7 +203,7 @@ class SimpleConfig(Logger):
         base_unit = self.user_config.get('base_unit')
         if isinstance(base_unit, str):
             self._set_key_in_user_config('base_unit', None)
-            map_ = {'btc':8, 'mbtc':5, 'ubtc':2, 'bits':2, 'sat':0}
+            map_ = {'qtum':8, 'mqtum':5, 'uqtum':2, 'sat':0}
             decimal_point = map_.get(base_unit.lower())
             self._set_key_in_user_config('decimal_point', decimal_point)
 
@@ -533,16 +529,14 @@ class SimpleConfig(Logger):
         fee_per_kb = self.fee_per_kb()
         return fee_per_kb / 1000 if fee_per_kb is not None else None
 
-    def estimate_fee(self, size: Union[int, float, Decimal]) -> int:
+    def estimate_fee(self, size):
         fee_per_kb = self.fee_per_kb()
         if fee_per_kb is None:
             raise NoDynamicFeeEstimates()
         return self.estimate_fee_for_feerate(fee_per_kb, size)
 
     @classmethod
-    def estimate_fee_for_feerate(cls, fee_per_kb: Union[int, float, Decimal],
-                                 size: Union[int, float, Decimal]) -> int:
-        size = Decimal(size)
+    def estimate_fee_for_feerate(cls, fee_per_kb, size):
         fee_per_kb = Decimal(fee_per_kb)
         fee_per_byte = fee_per_kb / 1000
         # to be consistent with what is displayed in the GUI,

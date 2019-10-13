@@ -35,7 +35,7 @@ from typing import (Sequence, Union, NamedTuple, Tuple, Optional, Iterable,
 
 from . import ecc, bitcoin, constants, segwit_addr
 from .util import profiler, to_bytes, bh2u, bfh
-from .bitcoin import (TYPE_ADDRESS, TYPE_PUBKEY, TYPE_SCRIPT, hash_160,
+from .bitcoin import (TYPE_ADDRESS, TYPE_PUBKEY, TYPE_SCRIPT, TYPE_STAKE, hash_160,
                       hash160_to_p2sh, hash160_to_p2pkh, hash_to_segwit_addr,
                       hash_encode, var_int, TOTAL_COIN_SUPPLY_LIMIT_IN_BTC, COIN,
                       push_script, int_to_hex, push_script, b58_address_to_hash160,
@@ -532,6 +532,11 @@ def parse_output(vds, i):
     d['type'], d['address'] = get_address_from_output_script(scriptPubKey)
     d['scriptPubKey'] = bh2u(scriptPubKey)
     d['prevout_n'] = i
+
+    # Qtum
+    if not d['value'] and not d['address'] and not i and not d['scriptPubKey']:
+        # make then first output in stake tx as TYPE_STAKE
+        d['type'] = TYPE_STAKE
     return d
 
 
@@ -582,8 +587,52 @@ def multisig_script(public_keys: Sequence[str], m: int) -> str:
     keylist = [push_script(k) for k in public_keys]
     return op_m + ''.join(keylist) + op_n + opcodes.OP_CHECKMULTISIG.hex()
 
+def contract_encode_number(n):
+    bchr = lambda x: bytes([x])
+    r = bytearray(0)
+    if n == 0:
+        return bytes(r)
+    neg = n < 0
+    absvalue = -n if neg else n
+    while absvalue:
+        r.append(absvalue & 0xff)
+        absvalue >>= 8
+    if r[-1] & 0x80:
+        r.append(0x80 if neg else 0)
+    elif neg:
+        r[-1] |= 0x80
+    return bytes(bchr(len(r)) + r)
 
+def contract_script(gas_limit, gas_price, datahex, contract_addr, opcode):
+    script = '0104'
+    script += bh2u(contract_encode_number(gas_limit))
+    script += bh2u(contract_encode_number(gas_price))
+    script += push_script(datahex)
 
+    if opcode == opcodes.OP_CALL:
+        script += push_script(contract_addr)
+
+    script += bh2u(bytes([opcode]))
+    return script
+
+def is_opcall_script(_bytes):
+    try:
+        decoded = [x for x in script_GetOp(_bytes)]
+    except MalformedVIPSTARCOINScript:
+        return False
+    return len(decoded) == 6 \
+           and decoded[0] == (1, b'\x04', 2) \
+           and decoded[-2][0] == 0x14 \
+           and decoded[-1][0] == opcodes.OP_CALL
+
+def is_opcreate_script(_bytes):
+    try:
+        decoded = [x for x in script_GetOp(_bytes)]
+    except MalformedVIPSTARCOINScript:
+        return False
+    return len(decoded) == 5 \
+           and decoded[0] == (1, b'\x04', 2) \
+           and decoded[-1][0] == opcodes.OP_CREATE
 
 class Transaction:
 
@@ -958,8 +1007,12 @@ class Transaction:
 
     @classmethod
     def serialize_output(cls, output: TxOutput) -> str:
+        # Qtum
+        output_type = output.type
+        if output_type == TYPE_STAKE:
+            output_type = TYPE_SCRIPT
         s = int_to_hex(output.value, 8)
-        script = cls.pay_script(output.type, output.address)
+        script = cls.pay_script(output_type, addr=output.address)
         s += var_int(len(script)//2)
         s += script
         return s

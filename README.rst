@@ -1,4 +1,4 @@
-Electrum - Lightweight Bitcoin client
+Electrum for Qtum - Lightweight Qtum client
 =====================================
 
 ::
@@ -9,11 +9,11 @@ Electrum - Lightweight Bitcoin client
   Homepage: https://electrum.org/
 
 
-.. image:: https://travis-ci.org/spesmilo/electrum.svg?branch=master
-    :target: https://travis-ci.org/spesmilo/electrum
+.. image:: https://travis-ci.org/y-chan/electrum-qtum.svg?branch=qtum-porting
+    :target: https://travis-ci.org/y-chan/electrum-qtum
     :alt: Build Status
-.. image:: https://coveralls.io/repos/github/spesmilo/electrum/badge.svg?branch=master
-    :target: https://coveralls.io/github/spesmilo/electrum?branch=master
+.. image:: https://coveralls.io/repos/github/y-chan/electrum-qtum/badge.svg?branch=qtum-porting
+    :target: https://coveralls.io/github/y-chan/electrum-qtum?branch=qtum-porting
     :alt: Test coverage statistics
 .. image:: https://d322cqt584bo4o.cloudfront.net/electrum/localized.svg
     :target: https://crowdin.com/project/electrum
@@ -26,7 +26,7 @@ Electrum - Lightweight Bitcoin client
 Getting started
 ===============
 
-Electrum is a pure python application. If you want to use the
+Electrum for Qtum is a pure python application. If you want to use the
 Qt interface, install the Qt dependencies::
 
     sudo apt-get install python3-pyqt5
@@ -41,7 +41,7 @@ directory. To run Electrum from its root directory, just do::
 You can also install Electrum on your system, by running this command::
 
     sudo apt-get install python3-setuptools
-    python3 -m pip install .[fast]
+    sudo python3 -m pip install .[fast]
 
 This will download and install the Python dependencies used by
 Electrum instead of using the 'packages' directory.
@@ -59,8 +59,8 @@ Development version
 
 Check out the code from GitHub::
 
-    git clone git://github.com/spesmilo/electrum.git
-    cd electrum
+    git clone git://github.com/y-chan/electrum-qtum.git
+    cd electrum-qtum
 
 Run install (this should install dependencies)::
 
